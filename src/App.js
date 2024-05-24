@@ -3,6 +3,7 @@ import React, { Component } from 'react';
 import { Box, Button, Container, Heading } from '@chakra-ui/react';
 import { createPeerConnection } from './clients/webrtc';
 import socket from './clients/socket';
+import { jsx } from 'react/jsx-runtime';
 
 class App extends Component  {
 
@@ -90,20 +91,36 @@ class App extends Component  {
     console.log('addPeerConnectionListeners called');
     
     this.peerConnection.ontrack = (event) => {
-      console.log('onTrack called')
+      console.log('onTrack called' + event.streams.length);
       this.videoRef.current.srcObject = event.streams[0];
     }
 
     this.peerConnection.onicecandidate =  async (event) => {
       console.log('onicecandidate called')
-      await this.peerConnection.addIceCandidate(event.candidate);
-      const icecandidate = {
+      const iceCandidate = event.candidate;
+
+      // await this.peerConnection.addIceCandidate({
+      //   candidate: iceCandidate.candidate,
+      //   sdpMLineIndex: iceCandidate.sdpMLineIndex,
+      //   sdpMid: iceCandidate.sdpMid,
+      //   usernameFragment: iceCandidate.usernameFragment 
+      // });
+
+      if(!iceCandidate) return;
+      
+      const icecandidateJSON = {
         type : "IceCandidates",
         username : this.username,
         target : this.target,
-        data :  JSON.stringify(event.candidate)
+        data :  JSON.stringify({
+          sdp: iceCandidate.candidate,
+          sdpMid: 'video',
+          sdpMLineIndex: iceCandidate.sdpMLineIndex,
+          adapterType: 'UNKNOWN',
+          serverUrl: ''
+        })
       };
-      socket.send(JSON.stringify(icecandidate));
+      socket.send(JSON.stringify(icecandidateJSON));
     }
 
     this.peerConnection.onconnectionstatechange = (event) => {
@@ -138,7 +155,12 @@ class App extends Component  {
   
         case 'IceCandidates' : 
           try {
-            await this.peerConnection.addIceCandidate(model.data);
+            await this.peerConnection.addIceCandidate({
+              candidate: model.data.sdp,
+              sdpMLineIndex: model.data.sdpMLineIndex,
+              sdpMid: model.data.sdpMid,
+              usernameFragment: null 
+            });
           } catch(e) {
             console.error('Error adding ice candidate', e);
           }
