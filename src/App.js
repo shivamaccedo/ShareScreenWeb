@@ -3,7 +3,7 @@ import React, { Component } from 'react';
 import { Box, Button, Container, Heading } from '@chakra-ui/react';
 import { createPeerConnection } from './clients/webrtc';
 import socket from './clients/socket';
-import { jsx } from 'react/jsx-runtime';
+//import { prioritizeCodec } from './utils';
 
 class App extends Component  {
 
@@ -51,8 +51,6 @@ class App extends Component  {
             } } >
               Request
             </button>
-  
-  
           </form>
         </header>
       </div>
@@ -91,8 +89,10 @@ class App extends Component  {
     console.log('addPeerConnectionListeners called');
     
     this.peerConnection.ontrack = (event) => {
-      console.log('onTrack called' + event.streams.length);
+      console.log('onTrack called :' , event.streams);
+      console.log('video ref: ', this.videoRef);
       this.videoRef.current.srcObject = event.streams[0];
+
     }
 
     this.peerConnection.onicecandidate =  async (event) => {
@@ -113,10 +113,10 @@ class App extends Component  {
         username : this.username,
         target : this.target,
         data :  JSON.stringify({
+          adapterType: 'UNKNOWN',
           sdp: iceCandidate.candidate,
           sdpMid: 'video',
           sdpMLineIndex: iceCandidate.sdpMLineIndex,
-          adapterType: 'UNKNOWN',
           serverUrl: ''
         })
       };
@@ -148,7 +148,7 @@ class App extends Component  {
 
   async addSocketMessageListener() {
     socket.addEventListener('message', async (message) => {
-      console.log('socket on message: ' + (message.data));
+      console.log('socket on message: ' , (message.data));
       const model = JSON.parse(message.data);
   
       switch(model.type) {
@@ -175,6 +175,7 @@ class App extends Component  {
         
         case 'Answer' : 
         try {
+          //const sdp = prioritizeCodec(model.data, 'H265');
           await this.peerConnection.setRemoteDescription({
             type: 'answer',
             sdp: model.data
@@ -196,6 +197,10 @@ class App extends Component  {
         offerToReceiveVideo: true
       });
       console.log('offer', offer)
+      // const modifiedOffer = new RTCSessionDescription({
+      //   type: offer.type,
+      //   sdp: prioritizeCodec(offer.sdp, 'H265')
+      // });
       await this.peerConnection.setLocalDescription(offer);
       const offerJSON = {
         type : "Offer",
